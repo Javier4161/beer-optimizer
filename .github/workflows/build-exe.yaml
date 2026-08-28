@@ -21,10 +21,10 @@ jobs:
         run: pip install pyinstaller
 
       - name: Build BeerOptimizer.exe
-        run: pyinstaller --onefile --name BeerOptimizerdebug beer_optimizer_gui.py
+        run: pyinstaller --onefile --name BeerOptimizerDebug beer_optimizer_gui.py
 
       - name: Upload exe as build artifact
         uses: actions/upload-artifact@v4
         with:
           name: BeerOptimizer-exe
-          path: dist/BeerOptimizer.exe
+          path: dist/*.exe
