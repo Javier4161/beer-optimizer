@@ -142,17 +142,6 @@ class SettingsDialog(tk.Toplevel):
 
         self.bind("<Return>", lambda e: self._on_start())
         self.transient(master)
-
-        # On Windows, a Toplevel can otherwise fail to actually appear
-        # on screen (process runs, no window visible) if it doesn't
-        # forcibly claim focus - this can happen especially when its
-        # parent window is withdrawn. lift() + topmost + focus_force()
-        # is the standard fix.
-        self.lift()
-        self.attributes("-topmost", True)
-        self.after(250, lambda: self.attributes("-topmost", False))
-        self.focus_force()
-
         self.grab_set()
         self.wait_window(self)
 
@@ -536,10 +525,6 @@ if __name__ == "__main__":
 
     root = tk.Tk()
     root.withdraw()  # hide the (still-empty) main window until settings are confirmed
-    root.update_idletasks()  # make sure the withdrawn root is fully initialized
-                              # before a Toplevel tries to be transient to it -
-                              # skipping this can cause the dialog to silently
-                              # fail to appear on Windows
 
     settings_dlg = SettingsDialog(root, core.load_settings())
     if settings_dlg.settings is None:
@@ -547,11 +532,6 @@ if __name__ == "__main__":
         root.destroy()
     else:
         root.deiconify()
-        root.lift()
-        root.attributes("-topmost", True)
-        root.after(250, lambda: root.attributes("-topmost", False))
-        root.focus_force()
-
         app = BeerOptimizerApp(root, settings_dlg.settings)
 
         # Open both editor windows automatically on launch, offset so they
