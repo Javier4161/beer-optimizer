@@ -21,7 +21,7 @@ jobs:
         run: pip install pyinstaller
 
       - name: Build BeerOptimizer.exe
-        run: pyinstaller --onefile --name BeerOptimizerDebug beer_optimizer_gui.py
+        run: pyinstaller --onefile --name TkinterTest hello_tkinter.py.py
 
       - name: Upload exe as build artifact
         uses: actions/upload-artifact@v4
