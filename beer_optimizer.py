@@ -136,19 +136,30 @@ def save_settings(settings: Settings, path: str = SETTINGS_FILE) -> None:
 # (i.e. when no beers.csv / category_prices.csv exists yet in the data
 # dir). After that, whatever the user edits and saves takes over.
 DEFAULT_BEER_ROWS = [
-    {"name": "Hazy IPA", "enjoyability": "9.0", "abv": "6.5", "category": "Premium"},
-    {"name": "Pilsner", "enjoyability": "7.0", "abv": "4.8", "category": "Domestic"},
-    {"name": "Stout", "enjoyability": "8.0", "abv": "8.0", "category": "Import"},
-    {"name": "Sour", "enjoyability": "8.5", "abv": "5.0", "category": "Specials"},
-    {"name": "Barrel-Aged Barleywine", "enjoyability": "9.5", "abv": "11.0", "category": "Specials"},
-    {"name": "Light Lager", "enjoyability": "5.5", "abv": "4.2", "category": "Economy"},
+    {"name": "Budweiser", "enjoyability": "10", "abv": "5", "category": "Domestic"},
+    {"name": "Bud Light", "enjoyability": "9", "abv": "4.2", "category": "Domestic"},
+    {"name": "Busch Light", "enjoyability": "7", "abv": "4.1", "category": "Economy"},
+    {"name": "Yuengling", "enjoyability": "8.5", "abv": "4.5", "category": "Domestic"},
+    {"name": "Miller Light", "enjoyability": "7", "abv": "4.2", "category": "Domestic"},
+    {"name": "Modelo Especial", "enjoyability": "9.5", "abv": "4.4", "category": "Import"},
+    {"name": "Michelob Amber Bock", "enjoyability": "6", "abv": "5.1", "category": "Premium"},
+    {"name": "Mango Cart", "enjoyability": "10", "abv": "4", "category": "Specials"},
+    {"name": "Michelob Ultra", "enjoyability": "6", "abv": "4.2", "category": "Premium"},
+    {"name": "Blue Moon", "enjoyability": "6", "abv": "5.4", "category": "Import"},
+    {"name": "Bandwagon - American Amber", "enjoyability": "6", "abv": "5.6", "category": "Specials"},
+    {"name": "Wild Leap - Blueberry Lemonade", "enjoyability": "6", "abv": "5.5", "category": "Specials"},
+    {"name": "Sweetwater IPA", "enjoyability": "4", "abv": "5.7", "category": "Import"},
+    {"name": "Kona Big Wave", "enjoyability": "6", "abv": "4.4", "category": "Specials"},
+    {"name": "Guinness", "enjoyability": "4", "abv": "4.2", "category": "Import"},
+    {"name": "TBBC - Project PB&J", "enjoyability": "4", "abv": "5.6", "category": "Specials"},
+    {"name": "Sweetwater - Boom Chaka Laka", "enjoyability": "2", "abv": "6", "category": "Import"},
 ]
 DEFAULT_CATEGORY_PRICE_ROWS = [
-    {"category": "Domestic", "price_16": "4.00", "price_32": "7.50", "price_64": "14.00"},
-    {"category": "Premium", "price_16": "6.00", "price_32": "11.00", "price_64": "20.00"},
-    {"category": "Import", "price_16": "6.50", "price_32": "12.00", "price_64": "22.00"},
-    {"category": "Specials", "price_16": "7.00", "price_32": "13.00", "price_64": "24.00"},
-    {"category": "Economy", "price_16": "3.50", "price_32": "6.50", "price_64": "12.00"},
+    {"category": "Domestic", "price_16": "4.00", "price_32": "5.9", "price_64": "10"},
+    {"category": "Economy", "price_16": "3", "price_32": "5", "price_64": "7.75"},
+    {"category": "Import", "price_16": "5.75", "price_32": "9.75", "price_64": "17.75"},
+    {"category": "Premium", "price_16": "4.5", "price_32": "7", "price_64": "11.75"},
+    {"category": "Specials", "price_16": "6.75", "price_32": "12", "price_64": "20"},
 ]
 
 
