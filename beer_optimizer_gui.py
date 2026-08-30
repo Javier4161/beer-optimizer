@@ -18,6 +18,7 @@ persists between runs and is never written back to a shared flash drive.
 Run directly with:  python beer_optimizer_gui.py
 """
 
+import os
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, scrolledtext, ttk
@@ -25,6 +26,59 @@ from tkinter import messagebox, scrolledtext, ttk
 import beer_optimizer as core
 
 CATEGORY_CHOICES = sorted(core.CATEGORIES)
+
+CAP_FIELDS = [
+    ("session_limit_oz", "Session limit per beer (oz)"),
+    ("rolling_volume_limit_oz", "Rolling volume limit per beer (oz)"),
+    ("rolling_volume_window_days", "  \u2192 time frame (days)"),
+    ("rolling_category_limit_oz", "Rolling category limit (oz)"),
+    ("rolling_category_window_days", "  \u2192 time frame (days)"),
+]
+WEIGHT_FIELDS = [
+    ("weight_enjoyability_pct", "Enjoyability weight (%)"),
+    ("weight_price_pct", "Price weight (%)"),
+    ("weight_strength_pct", "Strength weight (%)"),
+]
+
+
+def _build_settings_from_vars(vars_dict: dict) -> "core.Settings | None":
+    """Validate all settings fields and build a core.Settings, or show an
+    error box and return None if anything is invalid."""
+    values = {}
+    for key, _ in CAP_FIELDS:
+        raw = vars_dict[key].get().strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            messagebox.showerror("Invalid entry", f"'{raw}' is not a whole number.")
+            return None
+        if value <= 0:
+            messagebox.showerror("Invalid entry", "All limits and time frames must be greater than zero.")
+            return None
+        values[key] = value
+
+    weight_values = {}
+    for key, _ in WEIGHT_FIELDS:
+        raw = vars_dict[key].get().strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            messagebox.showerror("Invalid entry", f"'{raw}' is not a whole number.")
+            return None
+        if value < 0:
+            messagebox.showerror("Invalid entry", "Weights cannot be negative.")
+            return None
+        weight_values[key] = value
+
+    if sum(weight_values.values()) != 100:
+        messagebox.showerror(
+            "Invalid weights",
+            f"Enjoyability + Price + Strength must add up to 100%.\n"
+            f"Currently: {sum(weight_values.values())}%"
+        )
+        return None
+    values.update(weight_values)
+    return core.Settings(**values)
 
 
 # ---------------------------------------------------------------------------
@@ -80,25 +134,12 @@ class FormDialog(tk.Toplevel):
 # ---------------------------------------------------------------------------
 class SettingsDialog(tk.Toplevel):
     """
-    Shown once at program startup (on top of a hidden root window).
-    Pre-filled with whatever was saved last time (or the built-in
-    defaults on first-ever run). Blocks until the user clicks Start.
+    Reopened mid-session via the "Change Limits..." button, when the main
+    window is already visible - safe to use as a Toplevel here since it's
+    transient to a real, mapped window rather than a hidden one.
     Result is stored in self.settings (a core.Settings), or None if the
-    user closed/cancelled - in which case the caller should exit.
+    user closed/cancelled.
     """
-
-    CAP_FIELDS = [
-        ("session_limit_oz", "Session limit per beer (oz)"),
-        ("rolling_volume_limit_oz", "Rolling volume limit per beer (oz)"),
-        ("rolling_volume_window_days", "  \u2192 time frame (days)"),
-        ("rolling_category_limit_oz", "Rolling category limit (oz)"),
-        ("rolling_category_window_days", "  \u2192 time frame (days)"),
-    ]
-    WEIGHT_FIELDS = [
-        ("weight_enjoyability_pct", "Enjoyability weight (%)"),
-        ("weight_price_pct", "Price weight (%)"),
-        ("weight_strength_pct", "Strength weight (%)"),
-    ]
 
     def __init__(self, master, initial: core.Settings):
         super().__init__(master)
@@ -114,7 +155,7 @@ class SettingsDialog(tk.Toplevel):
 
         self.vars = {}
         row = 1
-        for key, label in self.CAP_FIELDS:
+        for key, label in CAP_FIELDS:
             ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=4)
             var = tk.StringVar(value=str(getattr(initial, key)))
             ttk.Entry(self, textvariable=var, width=10).grid(row=row, column=1, sticky="w", padx=10, pady=4)
@@ -128,7 +169,7 @@ class SettingsDialog(tk.Toplevel):
             self, text="Scoring weights (must add up to 100%):", justify="left"
         ).grid(row=row, column=0, columnspan=2, sticky="w", padx=10)
         row += 1
-        for key, label in self.WEIGHT_FIELDS:
+        for key, label in WEIGHT_FIELDS:
             ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=4)
             var = tk.StringVar(value=str(getattr(initial, key)))
             ttk.Entry(self, textvariable=var, width=10).grid(row=row, column=1, sticky="w", padx=10, pady=4)
@@ -142,6 +183,8 @@ class SettingsDialog(tk.Toplevel):
 
         self.bind("<Return>", lambda e: self._on_start())
         self.transient(master)
+        self.lift()
+        self.focus_force()
         self.grab_set()
         self.wait_window(self)
 
@@ -151,49 +194,76 @@ class SettingsDialog(tk.Toplevel):
             var.set(str(getattr(defaults, key)))
 
     def _on_start(self):
-        values = {}
-
-        for key, _ in self.CAP_FIELDS:
-            raw = self.vars[key].get().strip()
-            try:
-                value = int(raw)
-            except ValueError:
-                messagebox.showerror("Invalid entry", f"'{raw}' is not a whole number.")
-                return
-            if value <= 0:
-                messagebox.showerror("Invalid entry", "All limits and time frames must be greater than zero.")
-                return
-            values[key] = value
-
-        weight_values = {}
-        for key, _ in self.WEIGHT_FIELDS:
-            raw = self.vars[key].get().strip()
-            try:
-                value = int(raw)
-            except ValueError:
-                messagebox.showerror("Invalid entry", f"'{raw}' is not a whole number.")
-                return
-            if value < 0:
-                messagebox.showerror("Invalid entry", "Weights cannot be negative.")
-                return
-            weight_values[key] = value
-
-        if sum(weight_values.values()) != 100:
-            messagebox.showerror(
-                "Invalid weights",
-                f"Enjoyability + Price + Strength must add up to 100%.\n"
-                f"Currently: {sum(weight_values.values())}%"
-            )
+        settings = _build_settings_from_vars(self.vars)
+        if settings is None:
             return
-        values.update(weight_values)
-
-        self.settings = core.Settings(**values)
-        core.save_settings(self.settings)
+        core.save_settings(settings)
+        self.settings = settings
         self.destroy()
 
     def _on_cancel(self):
         self.settings = None
         self.destroy()
+
+
+# ---------------------------------------------------------------------------
+# Startup settings screen - built directly into the (always-visible) root
+# window, rather than a Toplevel dialog attached to a hidden parent. This
+# avoids a Windows-specific issue where a Toplevel transient to a withdrawn,
+# never-mapped root can end up positioned off-screen and never actually
+# rendered, even though the process runs fine.
+# ---------------------------------------------------------------------------
+class SettingsFrame(ttk.Frame):
+    def __init__(self, master, initial: core.Settings, on_start):
+        super().__init__(master)
+        self.on_start = on_start
+
+        ttk.Label(
+            self, text="Set the purchase limits for this session.\nThese are saved and pre-filled next time.",
+            justify="left"
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 6))
+
+        self.vars = {}
+        row = 1
+        for key, label in CAP_FIELDS:
+            ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=4)
+            var = tk.StringVar(value=str(getattr(initial, key)))
+            ttk.Entry(self, textvariable=var, width=10).grid(row=row, column=1, sticky="w", padx=10, pady=4)
+            self.vars[key] = var
+            row += 1
+
+        ttk.Separator(self, orient="horizontal").grid(
+            row=row, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+        row += 1
+        ttk.Label(
+            self, text="Scoring weights (must add up to 100%):", justify="left"
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=10)
+        row += 1
+        for key, label in WEIGHT_FIELDS:
+            ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=4)
+            var = tk.StringVar(value=str(getattr(initial, key)))
+            ttk.Entry(self, textvariable=var, width=10).grid(row=row, column=1, sticky="w", padx=10, pady=4)
+            self.vars[key] = var
+            row += 1
+
+        btns = ttk.Frame(self)
+        btns.grid(row=row, column=0, columnspan=2, pady=12)
+        ttk.Button(btns, text="Reset to defaults", command=self._reset_defaults).pack(side="left", padx=6)
+        ttk.Button(btns, text="Start", command=self._on_start_clicked).pack(side="left", padx=6)
+
+        master.bind("<Return>", lambda e: self._on_start_clicked())
+
+    def _reset_defaults(self):
+        defaults = core.Settings()
+        for key, var in self.vars.items():
+            var.set(str(getattr(defaults, key)))
+
+    def _on_start_clicked(self):
+        settings = _build_settings_from_vars(self.vars)
+        if settings is None:
+            return
+        core.save_settings(settings)
+        self.on_start(settings)
 
 
 # ---------------------------------------------------------------------------
@@ -521,25 +591,53 @@ class BeerOptimizerApp:
 
 
 if __name__ == "__main__":
-    core.ensure_default_files()
+    try:
+        core.ensure_default_files()
 
-    root = tk.Tk()
-    root.withdraw()  # hide the (still-empty) main window until settings are confirmed
+        root = tk.Tk()
+        root.title("Beer Budget Optimizer - Settings")
+        # Explicit on-screen position (not just size) - never leave this to
+        # window-manager defaults.
+        root.geometry("480x420+120+80")
 
-    settings_dlg = SettingsDialog(root, core.load_settings())
-    if settings_dlg.settings is None:
-        # user closed the settings dialog without starting - exit quietly
-        root.destroy()
-    else:
-        root.deiconify()
-        app = BeerOptimizerApp(root, settings_dlg.settings)
+        def launch_main_app(settings: core.Settings):
+            for widget in root.winfo_children():
+                widget.destroy()
+            root.unbind("<Return>")
 
-        # Open both editor windows automatically on launch, offset so they
-        # don't sit exactly on top of the main window or each other.
-        root.update_idletasks()
-        beers_win = BeersEditor(root)
-        beers_win.geometry(f"+{root.winfo_x() + 740}+{root.winfo_y()}")
-        prices_win = CategoryPricesEditor(root)
-        prices_win.geometry(f"+{root.winfo_x() + 740}+{root.winfo_y() + 440}")
+            root.title("Beer Budget Optimizer")
+            root.geometry("720x600+120+80")
+
+            app = BeerOptimizerApp(root, settings)
+
+            # Open both editor windows, offset from root so they don't sit
+            # exactly on top of the main window or each other.
+            root.update_idletasks()
+            beers_win = BeersEditor(root)
+            beers_win.geometry(f"+{root.winfo_x() + 740}+{root.winfo_y()}")
+            prices_win = CategoryPricesEditor(root)
+            prices_win.geometry(f"+{root.winfo_x() + 740}+{root.winfo_y() + 440}")
+
+        settings_frame = SettingsFrame(root, core.load_settings(), on_start=launch_main_app)
+        settings_frame.pack(fill="both", expand=True)
 
         root.mainloop()
+
+    except Exception:
+        # Safety net: if something goes wrong before the window is up (e.g.
+        # a corrupted data file slipping past the normal handling), this
+        # writes the full error to a log file next to the program's data,
+        # instead of failing silently with --windowed builds where there's
+        # no console to see a traceback in.
+        import traceback
+        log_path = os.path.join(core.get_data_dir(), "error_log.txt")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"\n--- {datetime.now().isoformat()} ---\n")
+            traceback.print_exc(file=f)
+        try:
+            messagebox.showerror(
+                "Beer Budget Optimizer - Error",
+                f"Something went wrong on startup.\n\nDetails were saved to:\n{log_path}"
+            )
+        except Exception:
+            pass  # if even Tkinter itself is broken, the log file is the fallback
