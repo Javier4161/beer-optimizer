@@ -97,6 +97,22 @@ class Settings:
 DEFAULT_SETTINGS = Settings()
 
 
+def _atomic_write_json(path: str, data) -> None:
+    """
+    Write JSON to `path` without ever leaving a partially-written or
+    corrupted file behind, even if the process is killed mid-write
+    (e.g. via Task Manager "End Task"). Writes to a temp file in the
+    same folder first, then atomically renames it into place - on
+    Windows, os.replace() is atomic, so readers only ever see either
+    the old complete file or the new complete file, never a half-written
+    one.
+    """
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, path)
+
+
 def load_settings(path: str = SETTINGS_FILE) -> Settings:
     """Load saved settings, filling in defaults for any missing/invalid fields."""
     if not os.path.exists(path):
@@ -109,13 +125,12 @@ def load_settings(path: str = SETTINGS_FILE) -> Settings:
         for key in defaults.__dataclass_fields__:
             kwargs[key] = data.get(key, getattr(defaults, key))
         return Settings(**kwargs)
-    except (json.JSONDecodeError, TypeError, ValueError):
+    except (json.JSONDecodeError, TypeError, ValueError, OSError):
         return Settings()
 
 
 def save_settings(settings: Settings, path: str = SETTINGS_FILE) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(settings.__dict__, f, indent=2)
+    _atomic_write_json(path, settings.__dict__)
 
 # Seed data written out the first time the program runs on a computer
 # (i.e. when no beers.csv / category_prices.csv exists yet in the data
@@ -186,11 +201,13 @@ def load_beer_rows(path: str) -> List[dict]:
 
 def save_beer_rows(path: str, rows: List[dict]) -> None:
     fieldnames = ["name", "enjoyability", "abv", "category"]
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow({k: row.get(k, "") for k in fieldnames})
+    os.replace(tmp_path, path)
 
 
 def load_category_price_rows(path: str) -> List[dict]:
@@ -201,11 +218,13 @@ def load_category_price_rows(path: str) -> List[dict]:
 
 def save_category_price_rows(path: str, rows: List[dict]) -> None:
     fieldnames = ["category", "price_16", "price_32", "price_64"]
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow({k: row.get(k, "") for k in fieldnames})
+    os.replace(tmp_path, path)
 
 
 def ensure_default_files() -> None:
@@ -298,16 +317,21 @@ class Purchase:
 
 
 def load_history(path: str = HISTORY_FILE) -> List[dict]:
-    """Load past purchase records. Returns [] if the file doesn't exist yet."""
+    """Load past purchase records. Returns [] if the file doesn't exist yet,
+    or is unreadable/corrupted (e.g. left partially-written by a process
+    that was force-killed mid-save)."""
     if not os.path.exists(path):
         return []
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, TypeError, ValueError, OSError):
+        return []
 
 
 def save_history(records: List[dict], path: str = HISTORY_FILE) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2)
+    _atomic_write_json(path, records)
 
 
 def append_purchases_to_history(purchases: List[Purchase], now: datetime,
